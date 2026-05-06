@@ -372,6 +372,7 @@ function initGame() {
     momWinCount: 0,
     turnCount: 0,
     skipDraw: false, // true when player just chi/pong/kong'd and needs to discard
+    waitingForReaction: false, // true when human must respond to another's discard
   };
 }
 
@@ -1007,6 +1008,7 @@ function processTurn() {
   const player = game.players[game.currentPlayer];
 
   if (player.isHuman) {
+    game.waitingForReaction = false;
     const wasSkipDraw = game.skipDraw;
     game.skipDraw = false;
 
@@ -1224,6 +1226,7 @@ function discardTileFromDiscard(tile) {
 }
 
 function showReactionButtons(reactions, discardTile) {
+  game.waitingForReaction = true;
   const container = document.getElementById('actions');
   container.innerHTML = '';
 
@@ -1305,6 +1308,7 @@ function showReactionButtons(reactions, discardTile) {
   passBtn.className = 'btn-pass';
   passBtn.textContent = '过';
   passBtn.onclick = () => {
+    game.waitingForReaction = false;
     container.innerHTML = '';
     game.currentPlayer = (game.lastDiscard.fromPlayer + 1) % 4;
     if (game.currentPlayer === 0) {
@@ -1557,9 +1561,9 @@ function renderHand() {
 function onTileClick(id) {
   if (game.currentPlayer !== 0) return;
 
-  // If there are pending action buttons, don't allow tile selection
-  const actionsEl = document.getElementById('actions');
-  if (actionsEl.children.length > 0) return;
+  // Only block tile selection when reacting to another player's discard
+  // (吃/碰/杠/胡/过), not during own turn's optional actions (杠/自摸胡)
+  if (game.waitingForReaction) return;
 
   const player = game.players[0];
   const tile = player.hand.find(t => t.id === id);
