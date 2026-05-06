@@ -806,8 +806,10 @@ function doAnKong(player, key) {
   // 暗杠不算开口
 }
 
-function doFengJianKong(player) {
-  const idx = player.hand.findIndex(t => isMustKong(t));
+function doFengJianKong(player, specificRank) {
+  const idx = specificRank
+    ? player.hand.findIndex(t => isMustKong(t) && t.rank === specificRank)
+    : player.hand.findIndex(t => isMustKong(t));
   if (idx < 0) return;
   const tile = player.hand[idx];
   player.hand.splice(idx, 1);
@@ -1347,32 +1349,70 @@ function updateActionButtons() {
     container.appendChild(btn);
   }
 
-  // Kong button (暗杠, 红中杠, 赖子杠)
+  // 杠按钮 — 每种杠独立显示，暗杠可选（可杠可不杠）
   const ankongKeys = canAnKong(player.hand);
   const fjKong = canFengJianKong(player.hand);
   const lzKong = canLaiziKong(player.hand);
 
-  if (ankongKeys.length > 0 || fjKong > 0 || lzKong > 0) {
+  // 风箭杠（红中/发财）— 独立按钮
+  if (fjKong > 0) {
+    // 找出具体有哪种风箭
+    const hasHz = player.hand.some(t => isHongZhong(t));
+    const hasFc = player.hand.some(t => isFaCai(t));
+    if (hasHz) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-kong';
+      btn.textContent = '🀄 红中杠';
+      btn.onclick = () => {
+        doFengJianKong(player, 5);
+        drawTile(player); sortHand(player);
+        renderAll(); updateActionButtons();
+        setMessage('红中杠！补了一张牌');
+      };
+      container.appendChild(btn);
+    }
+    if (hasFc) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-kong';
+      btn.textContent = '🀅 发财杠';
+      btn.onclick = () => {
+        doFengJianKong(player, 6);
+        drawTile(player); sortHand(player);
+        renderAll(); updateActionButtons();
+        setMessage('发财杠！补了一张牌');
+      };
+      container.appendChild(btn);
+    }
+  }
+
+  // 赖子杠 — 独立按钮
+  if (lzKong > 0) {
     const btn = document.createElement('button');
     btn.className = 'btn-kong';
-    btn.textContent = `杠 (${ankongKeys.length + (fjKong>0?1:0) + (lzKong>0?1:0)})`;
+    btn.textContent = '🌟 赖子杠';
     btn.onclick = () => {
-      // Priority: 风箭杠 > 赖子杠 > 暗杠
-      if (fjKong > 0) {
-        doFengJianKong(player);
-        const drawn = drawTile(player);
-        sortHand(player.hand);
-      } else if (lzKong > 0) {
-        doLaiziKong(player);
-        const drawn = drawTile(player);
-        sortHand(player.hand);
-      } else if (ankongKeys.length > 0) {
-        doAnKong(player, ankongKeys[0]);
-        const drawn = drawTile(player);
-        sortHand(player.hand);
-      }
-      renderAll();
-      updateActionButtons();
+      doLaiziKong(player);
+      drawTile(player); sortHand(player);
+      renderAll(); updateActionButtons();
+      setMessage('赖子杠！补了一张牌');
+    };
+    container.appendChild(btn);
+  }
+
+  // 暗杠 — 每个四张一组独立按钮，可选择杠或不杠（不杠就当刻子+单张用）
+  for (const key of ankongKeys) {
+    const [suit, rankStr] = key.split('_');
+    const rank = parseInt(rankStr);
+    const tile = { suit, rank, id: -1 };
+    const btn = document.createElement('button');
+    btn.className = 'btn-kong';
+    btn.style.background = '#9c27b0';
+    btn.textContent = `🔒 暗杠${tileName(tile)}`;
+    btn.onclick = () => {
+      doAnKong(player, key);
+      drawTile(player); sortHand(player);
+      renderAll(); updateActionButtons();
+      setMessage(`暗杠${tileName(tile)}！补了一张牌`);
     };
     container.appendChild(btn);
   }
