@@ -459,9 +459,11 @@ function sortHand(hand) {
 //  WIN CHECKER
 // ═══════════════════════════════════════════
 
-// Check if hand can win. Hand should NOT contain 红中 (those must be杠'd first).
+// Check if hand can win. Hand should NOT contain 红中/发财 (must杠 first).
 // Hand CAN contain laizi (they are counted internally).
-function canWin(hand, isDaHu) {
+// isDaHu: 大胡 allows any pair rank. false = 小胡 requires 2/5/8 pair.
+// tripletsOnly: 碰碰胡 = all melds must be triplets, no sequences.
+function canWin(hand, isDaHu, tripletsOnly) {
   // Filter out红中/发财 (must杠 first)
   const cleanHand = hand.filter(t => !isMustKong(t));
 
@@ -477,18 +479,20 @@ function canWin(hand, isDaHu) {
   }
 
   // Check each suit as the "pair suit"
+  // 小胡不能风牌做将（风牌做将必须是大胡）
   const suits = ['wan','tiao','tong','feng'];
   for (const pairSuit of suits) {
+    if (!isDaHu && pairSuit === 'feng') continue; // 小胡风牌不能做将
     const maxRank = pairSuit === 'feng' ? 7 : 9;
 
     // Determine which ranks to try for the pair
     let pairRanks;
     if (isDaHu || pairSuit === 'feng') {
-      // Any rank can be the pair
+      // 大胡任意将牌
       pairRanks = [];
       for (let r = 1; r <= maxRank; r++) pairRanks.push(r);
     } else {
-      // Only 2, 5, 8 can be the pair for小胡
+      // 小胡必须258将
       pairRanks = [2, 5, 8];
     }
 
@@ -516,25 +520,29 @@ function canWin(hand, isDaHu) {
         continue;
       }
 
-      if (canFormAllMelds(remaining, usedLaizi)) {
+      if (canFormAllMelds(remaining, usedLaizi, tripletsOnly)) {
         return true;
       }
     }
   }
+  // 碰碰胡检测失败时，回退允许顺子（可能实际是清一色或小胡）
+  if (tripletsOnly && isDaHu) {
+    return canWin(hand, true, false);
+  }
   return false;
 }
 
-function canFormAllMelds(bySuit, laiziLeft) {
+function canFormAllMelds(bySuit, laiziLeft, tripletsOnly) {
   for (const suit of SUITS) {
     const ranks = [...bySuit[suit]].sort((a,b)=>a-b);
-    const result = canFormMeldsForSuit(ranks, laiziLeft, suit === 'feng');
+    const result = canFormMeldsForSuit(ranks, laiziLeft, suit === 'feng', tripletsOnly);
     if (!result.ok) return false;
     laiziLeft = result.laiziLeft;
   }
   return laiziLeft >= 0;
 }
 
-function canFormMeldsForSuit(ranks, laiziLeft, isWind) {
+function canFormMeldsForSuit(ranks, laiziLeft, isWind, tripletsOnly) {
   if (ranks.length === 0) return { ok:true, laiziLeft };
 
   // Count frequencies
@@ -543,10 +551,10 @@ function canFormMeldsForSuit(ranks, laiziLeft, isWind) {
 
   // Try to remove melds using backtracking
   const keys = Object.keys(counts).map(Number).sort((a,b)=>a-b);
-  return tryRemoveMelds(counts, keys, 0, laiziLeft, isWind);
+  return tryRemoveMelds(counts, keys, 0, laiziLeft, isWind, tripletsOnly);
 }
 
-function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind) {
+function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind, tripletsOnly) {
   // Find first non-zero count
   while (idx < keys.length && (counts[keys[idx]] || 0) === 0) idx++;
   if (idx >= keys.length) return { ok:true, laiziLeft };
@@ -557,29 +565,29 @@ function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind) {
   // Option 1: Triplet (or partial with laizi)
   if (c >= 3) {
     counts[r] -= 3;
-    const res = tryRemoveMelds(counts, keys, idx, laiziLeft, isWind);
+    const res = tryRemoveMelds(counts, keys, idx, laiziLeft, isWind, tripletsOnly);
     counts[r] += 3;
     if (res.ok) return res;
   }
   if (c >= 2 && laiziLeft >= 1) {
     counts[r] -= 2;
-    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 1, isWind);
+    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 1, isWind, tripletsOnly);
     counts[r] += 2;
     if (res.ok) return res;
   }
   if (c >= 1 && laiziLeft >= 2) {
     counts[r] -= 1;
-    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 2, isWind);
+    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 2, isWind, tripletsOnly);
     counts[r] += 1;
     if (res.ok) return res;
   }
   if (laiziLeft >= 3) {
-    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 3, isWind);
+    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 3, isWind, tripletsOnly);
     if (res.ok) return res;
   }
 
-  // Option 2: Sequence (only for non-wind suits, ranks 1-7)
-  if (!isWind && r <= 7) {
+  // Option 2: Sequence (only for non-wind suits, ranks 1-7, and NOT for碰碰胡)
+  if (!isWind && r <= 7 && !tripletsOnly) {
     const c1 = counts[r] || 0;
     const c2 = counts[r+1] || 0;
     const c3 = counts[r+2] || 0;
@@ -587,7 +595,7 @@ function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind) {
     // All present
     if (c1 >= 1 && c2 >= 1 && c3 >= 1) {
       counts[r]--; counts[r+1]--; counts[r+2]--;
-      const res = tryRemoveMelds(counts, keys, idx, laiziLeft, isWind);
+      const res = tryRemoveMelds(counts, keys, idx, laiziLeft, isWind, tripletsOnly);
       counts[r]++; counts[r+1]++; counts[r+2]++;
       if (res.ok) return res;
     }
@@ -598,7 +606,7 @@ function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind) {
       if (c1>=1) counts[r]--;
       if (c2>=1) counts[r+1]--;
       if (c3>=1) counts[r+2]--;
-      const res = tryRemoveMelds(counts, keys, idx, laiziLeft - need, isWind);
+      const res = tryRemoveMelds(counts, keys, idx, laiziLeft - need, isWind, tripletsOnly);
       if (c1>=1) counts[r]++;
       if (c2>=1) counts[r+1]++;
       if (c3>=1) counts[r+2]++;
@@ -609,7 +617,7 @@ function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind) {
       if (c1>=1) counts[r]--;
       if (c2>=1) counts[r+1]--;
       if (c3>=1) counts[r+2]--;
-      const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 2, isWind);
+      const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 2, isWind, tripletsOnly);
       if (c1>=1) counts[r]++;
       if (c2>=1) counts[r+1]++;
       if (c3>=1) counts[r+2]++;
@@ -621,8 +629,10 @@ function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind) {
 }
 
 // Check if hand is a "big win" (大胡): 清一色 or 碰碰胡
-function isDaHu(hand) {
-  // Separate laizi from regular tiles
+// Returns { isDaHu: bool, tripletsOnly: bool }
+//   - 清一色: isDaHu=true, tripletsOnly=false (sequences okay)
+//   - 碰碰胡: isDaHu=true, tripletsOnly=true (no sequences allowed)
+function checkDaHu(hand) {
   const regularTiles = hand.filter(t => !isLaizi(t) && !isMustKong(t));
 
   const bySuit = { wan:[], tiao:[], tong:[], feng:[] };
@@ -630,23 +640,52 @@ function isDaHu(hand) {
     bySuit[t.suit].push(t.rank);
   }
 
-  // Check 清一色: all regular tiles are same suit (laizi are wild)
+  // Check 清一色: all regular tiles are same suit
   const nonEmptySuits = SUITS.filter(s => bySuit[s].length > 0);
-  if (nonEmptySuits.length <= 1) return true;
+  const isQingYiSe = nonEmptySuits.length <= 1;
 
-  // Check 碰碰胡: no singleton tiles in numbered suits (laizi help fill gaps)
-  let allPairsOrBetter = true;
+  // Check 碰碰胡: no singles, all tiles in same-rank groups of 2+
+  let isPengPengHu = true;
   for (const s of ['wan','tiao','tong']) {
     const counts = {};
     for (const r of bySuit[s]) counts[r] = (counts[r]||0)+1;
     for (const r in counts) {
-      if (counts[r] === 1) {
-        // A single tile in numbered suit needs a sequence - can't be碰碰胡
-        allPairsOrBetter = false;
-      }
+      if (counts[r] === 1) isPengPengHu = false;
     }
   }
-  return allPairsOrBetter;
+
+  // 碰碰胡必须能真的用全刻子赢
+  if (isPengPengHu && canWin(hand, true, true)) {
+    return { isDaHu: true, tripletsOnly: true };
+  }
+
+  // 七对: 14 tiles, 7 pairs (laizi补单张)
+  const totalTiles = regularTiles.length + hand.filter(t => isLaizi(t)).length;
+  if (totalTiles === 14) {
+    let singles = 0;
+    for (const s of SUITS) {
+      const counts = {};
+      for (const r of bySuit[s]) counts[r] = (counts[r]||0)+1;
+      for (const r in counts) {
+        if (counts[r] % 2 === 1) singles++;
+      }
+    }
+    const laiziCount = hand.filter(t => isLaizi(t)).length;
+    if (singles <= laiziCount) {
+      return { isDaHu: true, tripletsOnly: false, isQiDui: true };
+    }
+  }
+
+  // 清一色: all regular tiles same suit
+  if (isQingYiSe && canWin(hand, true, false)) {
+    return { isDaHu: true, tripletsOnly: false };
+  }
+  return { isDaHu: false, tripletsOnly: false };
+}
+
+// Legacy wrapper for backward compatibility
+function isDaHu(hand) {
+  return checkDaHu(hand).isDaHu;
 }
 
 // Count laizi in hand
@@ -932,9 +971,9 @@ function checkReactions(discardTile, discardPlayerIdx) {
     // Check win (hu)
     const fjCount = countFengJian(p.hand);
     if (fjCount === 0) {
-      const daHu = isDaHu(handWithDiscard.filter(t => !isMustKong(t)));
-      if (canWin(handWithDiscard.filter(t => !isMustKong(t)), daHu)) {
-        if (p.openMouth || daHu) {
+      const dh = checkDaHu(handWithDiscard.filter(t => !isMustKong(t)));
+      if (canWin(handWithDiscard.filter(t => !isMustKong(t)), dh.isDaHu, dh.tripletsOnly)) {
+        if (p.openMouth || dh.isDaHu) {
           actions.push({ playerIdx:i, type:'win', priority:4 });
         }
       }
@@ -982,9 +1021,9 @@ function processTurn() {
     // Check if human can win (自摸)
     const fjCount = countFengJian(player.hand);
     const handNoFj = player.hand.filter(t => !isMustKong(t));
-    const daHu = isDaHu(handNoFj);
+    const dh = checkDaHu(handNoFj);
 
-    if (fjCount === 0 && canWin(handNoFj, daHu) && (player.openMouth || daHu)) {
+    if (fjCount === 0 && canWin(handNoFj, dh.isDaHu, dh.tripletsOnly) && (player.openMouth || dh.isDaHu)) {
       setMessage('🎉 自摸！点击"胡"按钮！');
     } else {
       setMessage('选择一张牌打出去');
@@ -1021,9 +1060,9 @@ function aiTurn(player) {
 
   // Check self-draw win (自摸)
   const fjCount = countFengJian(player.hand);
-  const daHu = isDaHu(player.hand.filter(t => !isMustKong(t)));
+  const dh = checkDaHu(player.hand.filter(t => !isMustKong(t)));
 
-  if (fjCount === 0 && (player.openMouth || daHu) && canWin(player.hand.filter(t => !isMustKong(t)), daHu)) {
+  if (fjCount === 0 && (player.openMouth || dh.isDaHu) && canWin(player.hand.filter(t => !isMustKong(t)), dh.isDaHu, dh.tripletsOnly)) {
     // AI wins (but sometimes "misses" to let mom win)
     const isMom = playerIdx === 0;
     if (isMom || Math.random() < 0.55) {
@@ -1301,9 +1340,9 @@ function updateActionButtons() {
   // Check if can win (自摸)
   const fjCount = countFengJian(player.hand);
   const lzCount = countLaizi(player.hand);
-  const daHu = isDaHu(player.hand.filter(t => !isMustKong(t)));
+  const dh = checkDaHu(player.hand.filter(t => !isMustKong(t)));
 
-  if (fjCount === 0 && player.openMouth && canWin(player.hand.filter(t => !isMustKong(t)), daHu)) {
+  if (fjCount === 0 && player.openMouth && canWin(player.hand.filter(t => !isMustKong(t)), dh.isDaHu, dh.tripletsOnly)) {
     const btn = document.createElement('button');
     btn.className = 'btn-win';
     btn.textContent = '🏆 自摸胡！';
