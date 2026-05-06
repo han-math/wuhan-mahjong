@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>武汉麻将 - 母亲节快乐</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: #1a5c2a;
+  background-image: radial-gradient(ellipse at center, #1e7030 0%, #0d3618 100%);
+  min-height:100vh; min-height:100dvh;
+  display:flex; justify-content:center; align-items:center;
+  user-select:none; -webkit-user-select:none;
+  overflow:hidden;
+  touch-action:manipulation;
+}
+#app {
+  width:100%; max-width:480px; height:100vh; height:100dvh;
+  display:flex; flex-direction:column;
+  position:relative;
+}
+
+/* ── top bar ── */
+#top-bar {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 12px; color:#ffd700; font-size:14px;
+  background:rgba(0,0,0,0.35); min-height:40px;
+}
+#top-bar .info { display:flex; gap:14px; }
+#top-bar .label { color:#aaa; font-size:12px; }
+#top-bar .value { font-weight:bold; font-size:15px; }
+
+/* ── opponents area ── */
+#opponents {
+  display:flex; justify-content:space-around; align-items:center;
+  padding:6px 8px; gap:6px;
+}
+.opponent {
+  display:flex; flex-direction:column; align-items:center;
+  background:rgba(0,0,0,0.2); border-radius:12px;
+  padding:8px 12px; min-width:80px;
+}
+.opponent .name { color:#fff; font-size:13px; font-weight:bold; margin-bottom:3px; }
+.opponent .tile-count { color:#ccc; font-size:11px; }
+.opponent .melds { display:flex; gap:2px; flex-wrap:wrap; justify-content:center; margin-top:3px; }
+.opponent .meld-tile {
+  font-size:10px; background:rgba(255,255,255,0.2); color:#fff;
+  padding:2px 4px; border-radius:3px; white-space:nowrap;
+}
+.opponent.current-player {
+  background:rgba(255,215,0,0.25);
+  box-shadow:0 0 8px rgba(255,215,0,0.3);
+}
+
+/* ── center area ── */
+#center {
+  flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;
+  position:relative; min-height:180px;
+}
+#discard-zone {
+  display:flex; flex-direction:column; gap:3px; justify-content:flex-start;
+  padding:6px; flex:1; overflow-y:auto; max-height:100%;
+  -webkit-overflow-scrolling:touch;
+}
+.discarded {
+  width:32px; height:44px; border-radius:4px;
+  display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+  font-size:11px; font-weight:bold; background:#fffef0;
+  border:1.5px solid #ccc; box-shadow:1px 1px 2px rgba(0,0,0,0.2);
+  position:relative; flex-shrink:0;
+}
+.discarded .suit { font-size:7px; }
+.discarded .from { font-size:7px; color:#999; position:absolute; bottom:0px; }
+.discarded.last { border-color:#ffd700; box-shadow:0 0 8px #ffd700; animation:pulse 0.6s ease-in-out 3; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 4px #ffd700} 50%{box-shadow:0 0 16px #ffd700} }
+
+#flip-info {
+  margin:6px 0; padding:6px 16px; background:rgba(0,0,0,0.45);
+  border-radius:20px; color:#fff; font-size:14px;
+  display:flex; gap:12px;
+}
+#flip-info .lz { color:#ffd700; font-weight:bold; }
+
+#message {
+  text-align:center; color:#fff; font-size:15px; font-weight:bold;
+  padding:6px; min-height:26px;
+  text-shadow:0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* ── action buttons ── */
+#actions {
+  display:flex; gap:10px; justify-content:center; padding:6px 10px;
+  flex-wrap:wrap; min-height:48px;
+}
+#actions button {
+  padding:12px 20px; border-radius:24px; border:none;
+  font-size:17px; font-weight:bold; cursor:pointer;
+  min-width:64px; transition:all 0.15s;
+  box-shadow:0 2px 6px rgba(0,0,0,0.3);
+}
+#actions button:active { transform:scale(0.92); }
+.btn-chi  { background:#4caf50; color:#fff; }
+.btn-pong { background:#2196f3; color:#fff; }
+.btn-kong { background:#ff9800; color:#fff; }
+.btn-win  { background:#f44336; color:#fff; animation:pulse-btn 0.5s ease-in-out infinite; }
+@keyframes pulse-btn { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+.btn-pass { background:#777; color:#fff; }
+.btn-play { background:#ffd700; color:#333; }
+
+/* ── player hand ── */
+#hand-area {
+  padding:8px 6px 12px; position:relative;
+  background:rgba(0,0,0,0.15);
+}
+#hand-tiles {
+  display:flex; gap:3px; justify-content:center; flex-wrap:wrap;
+  min-height:64px; align-items:flex-end;
+}
+.tile {
+  width:44px; height:60px; border-radius:6px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-weight:bold; cursor:pointer; position:relative;
+  border:2px solid #bbb; background:#fffef5;
+  box-shadow:1px 2px 5px rgba(0,0,0,0.3);
+  transition:transform 0.1s;
+  font-size:16px;
+}
+.tile:active { transform:scale(0.9); }
+.tile .rank { font-size:19px; line-height:1.1; }
+.tile .suit { font-size:9px; }
+.tile.selected { transform:translateY(-14px); border-color:#ffd700; box-shadow:0 4px 14px rgba(255,215,0,0.5); }
+.tile.laizi-tile { border-color:#ffd700; background:linear-gradient(135deg,#fffde0,#fff9c4); border-width:3px; }
+.tile.laizi-tile::after {
+  content:'赖'; position:absolute; top:-2px; right:1px;
+  font-size:8px; color:#e65100; font-weight:bold;
+}
+.tile.hongzhong { border-color:#e53935; background:#ffebee; border-width:3px; }
+.tile.hongzhong::after {
+  content:'杠'; position:absolute; top:-2px; right:1px;
+  font-size:8px; color:#c62828; font-weight:bold;
+}
+.tile.wan { color:#b71c1c; }
+.tile.tiao { color:#1b5e20; }
+.tile.tong { color:#0d47a1; }
+.tile.feng { color:#333; }
+.tile.jian { color:#6a1b9a; }
+.tile.hongzhong.jian { color:#c62828; }
+
+/* ── meld display ── */
+#my-melds {
+  display:flex; gap:4px; flex-wrap:wrap; padding:4px 10px;
+  justify-content:center; min-height:10px;
+}
+.meld-group {
+  display:flex; gap:1px; background:rgba(255,255,255,0.15);
+  padding:2px 4px; border-radius:5px;
+}
+.meld-group .mt {
+  width:34px; height:46px; border-radius:4px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-size:12px; font-weight:bold; background:#fffef0;
+  border:1px solid #ccc;
+}
+.meld-group .mt.wan { color:#c62828; }
+.meld-group .mt.tiao { color:#2e7d32; }
+.meld-group .mt.tong { color:#1565c0; }
+
+/* ── result modal ── */
+#modal-overlay {
+  display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,0.75); z-index:100;
+  justify-content:center; align-items:center;
+}
+#modal-overlay.show { display:flex; }
+#modal {
+  background:#fff; border-radius:20px; padding:28px 24px; text-align:center;
+  max-width:340px; width:90%;
+  box-shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+#modal h2 { font-size:28px; margin-bottom:8px; }
+#modal .result { font-size:17px; color:#666; margin-bottom:20px; }
+#modal button {
+  padding:14px 36px; border-radius:26px; border:none;
+  font-size:20px; font-weight:bold; cursor:pointer;
+  background:#1a5c2a; color:#ffd700;
+  box-shadow:0 3px 10px rgba(0,0,0,0.2);
+}
+
+/* ── new game button ── */
+#new-game-btn {
+  padding:5px 14px; border-radius:14px; border:none;
+  font-size:12px; cursor:pointer; background:rgba(255,255,255,0.2);
+  color:#fff; font-weight:bold;
+}
+#new-game-btn:active { background:rgba(255,255,255,0.35); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="top-bar">
+    <div class="info">
+      <div><span class="label">局数</span> <span class="value" id="round-num">1</span></div>
+      <div><span class="label">妈妈赢</span> <span class="value" id="mom-wins">0</span></div>
+    </div>
+    <div class="info">
+      <div><span class="label">赖子</span> <span class="value" id="laizi-display">-</span></div>
+      <button id="new-game-btn" onclick="startNewGame()">新一局</button>
+    </div>
+  </div>
+
+  <div id="opponents">
+    <div class="opponent" id="opp-left">
+      <div class="name">🤖 李阿姨</div>
+      <div class="tile-count" id="cnt-left">13张</div>
+      <div class="melds" id="melds-left"></div>
+    </div>
+    <div class="opponent" id="opp-top">
+      <div class="name">🤖 王阿姨</div>
+      <div class="tile-count" id="cnt-top">13张</div>
+      <div class="melds" id="melds-top"></div>
+    </div>
+    <div class="opponent" id="opp-right">
+      <div class="name">🤖 张阿姨</div>
+      <div class="tile-count" id="cnt-right">13张</div>
+      <div class="melds" id="melds-right"></div>
+    </div>
+  </div>
+
+  <div id="center">
+    <div id="flip-info">
+      <span>翻牌: <b id="flip-tile">-</b></span>
+      <span>赖子: <b class="lz" id="laizi-tile">-</b></span>
+    </div>
+    <div id="message">准备开始</div>
+    <div id="discard-zone"></div>
+  </div>
+
+  <div id="actions"></div>
+  <div id="my-melds"></div>
+  <div id="hand-area">
+    <div id="hand-tiles"></div>
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title"></h2>
+    <div class="result" id="modal-result"></div>
+    <button onclick="startNewGame()">再来一局 🀄</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// 武汉麻将 - 简化版 (红中赖子杠)
+// ═══════════════════════════════════════════
+
+// ── Constants ──
+const SUITS = ['wan','tiao','tong','feng'];
+const SUIT_NAMES = { wan:'万', tiao:'条', tong:'筒', feng:'风' };
+const RANK_NAMES = { 1:'一',2:'二',3:'三',4:'四',5:'五',6:'六',7:'七',8:'八',9:'九' };
+const WIND_NAMES = ['东','南','西','北','中','发','白'];
+// The 4 winds + 3 dragons are ranks 1-7 in the 'feng' suit
+const FENG_OFFSET = 7; // winds 1-4, dragons 5-7
+
+function tileName(t) {
+  if (t.suit === 'feng') {
+    return WIND_NAMES[t.rank - 1];
+  }
+  return RANK_NAMES[t.rank] + SUIT_NAMES[t.suit];
+}
+
+function tileShort(t) {
+  if (t.suit === 'feng') return WIND_NAMES[t.rank - 1];
+  return t.rank + SUIT_NAMES[t.suit];
+}
+
+function tileCSS(t) {
+  if (t.suit === 'feng') {
+    if (t.rank === 5) return 'jian hongzhong'; // 红中
+    if (t.rank === 6) return 'jian'; // 发财
+    if (t.rank === 7) return 'jian'; // 白板
+    return 'feng';
+  }
+  return t.suit;
+}
+
+// ── Tile creation ──
+function createTiles() {
+  const tiles = [];
+  let id = 0;
+  for (const suit of ['wan','tiao','tong']) {
+    for (let rank = 1; rank <= 9; rank++) {
+      for (let i = 0; i < 4; i++) {
+        tiles.push({ id:id++, suit, rank });
+      }
+    }
+  }
+  // Winds & dragons (feng suit, ranks 1-7)
+  for (let rank = 1; rank <= 7; rank++) {
+    for (let i = 0; i < 4; i++) {
+      tiles.push({ id:id++, suit:'feng', rank });
+    }
+  }
+  return tiles;
+}
+
+// ── Game state ──
+let game = null;
+
+function initGame() {
+  const tiles = createTiles();
+  // Shuffle
+  for (let i = tiles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+  }
+
+  const players = [
+    { name:'妈妈', hand:[], melds:[], discards:[], openMouth:false, isHuman:true, score:0 },
+    { name:'李阿姨', hand:[], melds:[], discards:[], openMouth:false, isHuman:false, score:0, diff:'easy' },
+    { name:'王阿姨', hand:[], melds:[], discards:[], openMouth:false, isHuman:false, score:0, diff:'medium' },
+    { name:'张阿姨', hand:[], melds:[], discards:[], openMouth:false, isHuman:false, score:0, diff:'hard' },
+  ];
+
+  // Deal: 13 each, dealer (player 0 = mom) gets 14
+  // Deal with mom bias: give mom better starting hand
+  for (let i = 0; i < 13; i++) {
+    for (let p = 0; p < 4; p++) {
+      if (p === 0 && i < 13) {
+        // Mom: biased draw - pick tiles that form pairs or sequences
+        players[0].hand.push(drawBiasedTile(tiles, players[0].hand));
+      } else {
+        players[p].hand.push(tiles.pop());
+      }
+    }
+  }
+  // Dealer (mom) draws 14th tile
+  players[0].hand.push(drawBiasedTile(tiles, players[0].hand));
+
+  // Sort hands
+  for (const p of players) {
+    sortHand(p.hand);
+  }
+
+  // Flip a tile to determine laizi
+  const flipIdx = tiles.length - 1 - Math.floor(Math.random() * 20);
+  const flipTile = tiles[flipIdx];
+  tiles.splice(flipIdx, 1); // remove from wall
+
+  // Determine laizi: next tile in sequence
+  const laiziTile = getNextTile(flipTile);
+
+  return {
+    tiles, // remaining wall
+    players,
+    currentPlayer: 0, // mom starts
+    flipTile,
+    laiziTile,
+    phase: 'play', // 'play' | 'wait_action' | 'need_discard'
+    lastDiscard: null, // {tile, fromPlayer}
+    pendingActions: null, // {player, actions:[{type, tiles}]}
+    roundCount: 1,
+    momWinCount: 0,
+    turnCount: 0,
+    skipDraw: false, // true when player just chi/pong/kong'd and needs to discard
+  };
+}
+
+// ── Mom-biased tile draw ──
+function drawBiasedTile(wall, hand) {
+  if (Math.random() < 0.35 && wall.length > 10) {
+    // 35% chance: try to find a tile that pairs with existing hand or is useful
+    const handCounts = getCountMap(hand);
+    // Look through last 30 tiles of wall for a good one
+    const searchStart = Math.max(0, wall.length - 40);
+    for (let i = wall.length - 1; i >= searchStart; i--) {
+      const t = wall[i];
+      const key = tileKey(t);
+      if (handCounts[key] && handCounts[key] >= 1) {
+        // Found a tile that pairs with something in hand
+        wall.splice(i, 1);
+        return t;
+      }
+    }
+    // Try to find a tile adjacent to something in hand (for sequences)
+    for (let i = wall.length - 1; i >= searchStart; i--) {
+      const t = wall[i];
+      if (t.suit !== 'feng') {
+        const key1 = tileKey({suit:t.suit, rank:t.rank-1});
+        const key2 = tileKey({suit:t.suit, rank:t.rank+1});
+        if (handCounts[key1] || handCounts[key2]) {
+          wall.splice(i, 1);
+          return t;
+        }
+      }
+    }
+  }
+  return wall.pop();
+}
+
+function getCountMap(hand) {
+  const map = {};
+  for (const t of hand) {
+    const k = tileKey(t);
+    map[k] = (map[k] || 0) + 1;
+  }
+  return map;
+}
+
+function tileKey(t) { return t.suit + '_' + t.rank; }
+
+function getNextTile(tile) {
+  if (tile.suit === 'feng') {
+    // Cycle: 东南西北中发白 → next
+    const nextRank = tile.rank === 7 ? 1 : tile.rank + 1;
+    return { suit:'feng', rank:nextRank, id:-1 };
+  }
+  // Numbered suits: cycle 1-9
+  const nextRank = tile.rank === 9 ? 1 : tile.rank + 1;
+  return { suit:tile.suit, rank:nextRank, id:-1 };
+}
+
+function isLaizi(t) {
+  if (!game) return false;
+  const lz = game.laiziTile;
+  return t.suit === lz.suit && t.rank === lz.rank;
+}
+
+function isHongZhong(t) {
+  return t.suit === 'feng' && t.rank === 5;
+}
+
+// ── Sorting ──
+function sortHand(hand) {
+  hand.sort((a, b) => {
+    const si = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+    if (si !== 0) return si;
+    return a.rank - b.rank;
+  });
+}
+
+// ═══════════════════════════════════════════
+//  WIN CHECKER
+// ═══════════════════════════════════════════
+
+// Check if hand can win. Hand should NOT contain 红中 (those must be杠'd first).
+// Hand CAN contain laizi (they are counted internally).
+function canWin(hand, isDaHu) {
+  // Filter out红中 (shouldn't be in hand, but be safe)
+  const cleanHand = hand.filter(t => !isHongZhong(t));
+
+  // Separate laizi from regular tiles
+  const laiziTiles = cleanHand.filter(t => isLaizi(t));
+  const regularTiles = cleanHand.filter(t => !isLaizi(t));
+  const totalLaizi = laiziTiles.length;
+
+  // Group regular tiles by suit
+  const bySuit = { wan:[], tiao:[], tong:[], feng:[] };
+  for (const t of regularTiles) {
+    bySuit[t.suit].push(t.rank);
+  }
+
+  // Check each suit as the "pair suit"
+  const suits = ['wan','tiao','tong','feng'];
+  for (const pairSuit of suits) {
+    const maxRank = pairSuit === 'feng' ? 7 : 9;
+
+    // Determine which ranks to try for the pair
+    let pairRanks;
+    if (isDaHu || pairSuit === 'feng') {
+      // Any rank can be the pair
+      pairRanks = [];
+      for (let r = 1; r <= maxRank; r++) pairRanks.push(r);
+    } else {
+      // Only 2, 5, 8 can be the pair for小胡
+      pairRanks = [2, 5, 8];
+    }
+
+    for (const pairRank of pairRanks) {
+      const remaining = {};
+      let usedLaizi = totalLaizi;
+      for (const s of suits) {
+        remaining[s] = [...bySuit[s]];
+      }
+
+      // Try to remove pair from pairSuit
+      const pairCount = remaining[pairSuit].filter(r => r === pairRank).length;
+      if (pairCount >= 2) {
+        const idx1 = remaining[pairSuit].indexOf(pairRank);
+        remaining[pairSuit].splice(idx1, 1);
+        const idx2 = remaining[pairSuit].indexOf(pairRank);
+        remaining[pairSuit].splice(idx2, 1);
+      } else if (pairCount === 1 && usedLaizi >= 1) {
+        const idx = remaining[pairSuit].indexOf(pairRank);
+        remaining[pairSuit].splice(idx, 1);
+        usedLaizi--;
+      } else if (pairCount === 0 && usedLaizi >= 2) {
+        usedLaizi -= 2;
+      } else {
+        continue;
+      }
+
+      if (canFormAllMelds(remaining, usedLaizi)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function canFormAllMelds(bySuit, laiziLeft) {
+  for (const suit of SUITS) {
+    const ranks = [...bySuit[suit]].sort((a,b)=>a-b);
+    const result = canFormMeldsForSuit(ranks, laiziLeft, suit === 'feng');
+    if (!result.ok) return false;
+    laiziLeft = result.laiziLeft;
+  }
+  return laiziLeft >= 0;
+}
+
+function canFormMeldsForSuit(ranks, laiziLeft, isWind) {
+  if (ranks.length === 0) return { ok:true, laiziLeft };
+
+  // Count frequencies
+  const counts = {};
+  for (const r of ranks) counts[r] = (counts[r] || 0) + 1;
+
+  // Try to remove melds using backtracking
+  const keys = Object.keys(counts).map(Number).sort((a,b)=>a-b);
+  return tryRemoveMelds(counts, keys, 0, laiziLeft, isWind);
+}
+
+function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind) {
+  // Find first non-zero count
+  while (idx < keys.length && (counts[keys[idx]] || 0) === 0) idx++;
+  if (idx >= keys.length) return { ok:true, laiziLeft };
+
+  const r = keys[idx];
+  const c = counts[r];
+
+  // Option 1: Triplet (or partial with laizi)
+  if (c >= 3) {
+    counts[r] -= 3;
+    const res = tryRemoveMelds(counts, keys, idx, laiziLeft, isWind);
+    counts[r] += 3;
+    if (res.ok) return res;
+  }
+  if (c >= 2 && laiziLeft >= 1) {
+    counts[r] -= 2;
+    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 1, isWind);
+    counts[r] += 2;
+    if (res.ok) return res;
+  }
+  if (c >= 1 && laiziLeft >= 2) {
+    counts[r] -= 1;
+    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 2, isWind);
+    counts[r] += 1;
+    if (res.ok) return res;
+  }
+  if (laiziLeft >= 3) {
+    const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 3, isWind);
+    if (res.ok) return res;
+  }
+
+  // Option 2: Sequence (only for non-wind suits, ranks 1-7)
+  if (!isWind && r <= 7) {
+    const c1 = counts[r] || 0;
+    const c2 = counts[r+1] || 0;
+    const c3 = counts[r+2] || 0;
+
+    // All present
+    if (c1 >= 1 && c2 >= 1 && c3 >= 1) {
+      counts[r]--; counts[r+1]--; counts[r+2]--;
+      const res = tryRemoveMelds(counts, keys, idx, laiziLeft, isWind);
+      counts[r]++; counts[r+1]++; counts[r+2]++;
+      if (res.ok) return res;
+    }
+    // 2 present + 1 laizi
+    const present = (c1>=1?1:0)+(c2>=1?1:0)+(c3>=1?1:0);
+    const need = 3 - present;
+    if (present >= 2 && laiziLeft >= need && need <= 1) {
+      if (c1>=1) counts[r]--;
+      if (c2>=1) counts[r+1]--;
+      if (c3>=1) counts[r+2]--;
+      const res = tryRemoveMelds(counts, keys, idx, laiziLeft - need, isWind);
+      if (c1>=1) counts[r]++;
+      if (c2>=1) counts[r+1]++;
+      if (c3>=1) counts[r+2]++;
+      if (res.ok) return res;
+    }
+    // 1 present + 2 laizi
+    if (present >= 1 && laiziLeft >= 2) {
+      if (c1>=1) counts[r]--;
+      if (c2>=1) counts[r+1]--;
+      if (c3>=1) counts[r+2]--;
+      const res = tryRemoveMelds(counts, keys, idx, laiziLeft - 2, isWind);
+      if (c1>=1) counts[r]++;
+      if (c2>=1) counts[r+1]++;
+      if (c3>=1) counts[r+2]++;
+      if (res.ok) return res;
+    }
+  }
+
+  return { ok:false, laiziLeft };
+}
+
+// Check if hand is a "big win" (大胡): 清一色 or 碰碰胡
+function isDaHu(hand) {
+  // Separate laizi from regular tiles
+  const regularTiles = hand.filter(t => !isLaizi(t) && !isHongZhong(t));
+
+  const bySuit = { wan:[], tiao:[], tong:[], feng:[] };
+  for (const t of regularTiles) {
+    bySuit[t.suit].push(t.rank);
+  }
+
+  // Check 清一色: all regular tiles are same suit (laizi are wild)
+  const nonEmptySuits = SUITS.filter(s => bySuit[s].length > 0);
+  if (nonEmptySuits.length <= 1) return true;
+
+  // Check 碰碰胡: no singleton tiles in numbered suits (laizi help fill gaps)
+  let allPairsOrBetter = true;
+  for (const s of ['wan','tiao','tong']) {
+    const counts = {};
+    for (const r of bySuit[s]) counts[r] = (counts[r]||0)+1;
+    for (const r in counts) {
+      if (counts[r] === 1) {
+        // A single tile in numbered suit needs a sequence - can't be碰碰胡
+        allPairsOrBetter = false;
+      }
+    }
+  }
+  return allPairsOrBetter;
+}
+
+// Count laizi in hand
+function countLaizi(hand) {
+  return hand.filter(t => isLaizi(t)).length;
+}
+
+// Count 红中 in hand
+function countHongZhong(hand) {
+  return hand.filter(t => isHongZhong(t)).length;
+}
+
+// ═══════════════════════════════════════════
+//  GAME ACTIONS
+// ═══════════════════════════════════════════
+
+function canChi(hand, discardTile) {
+  if (discardTile.suit === 'feng') return [];
+  const r = discardTile.rank;
+  const suit = discardTile.suit;
+  const results = [];
+
+  // Check r-2, r-1, r
+  if (r >= 3) {
+    const has1 = hand.some(t => t.suit === suit && t.rank === r-2 && !isLaizi(t));
+    const has2 = hand.some(t => t.suit === suit && t.rank === r-1 && !isLaizi(t));
+    if (has1 && has2) results.push([r-2, r-1, r]);
+  }
+  // Check r-1, r, r+1
+  if (r >= 2 && r <= 8) {
+    const has1 = hand.some(t => t.suit === suit && t.rank === r-1 && !isLaizi(t));
+    const has2 = hand.some(t => t.suit === suit && t.rank === r+1 && !isLaizi(t));
+    if (has1 && has2) results.push([r-1, r, r+1]);
+  }
+  // Check r, r+1, r+2
+  if (r <= 7) {
+    const has1 = hand.some(t => t.suit === suit && t.rank === r+1 && !isLaizi(t));
+    const has2 = hand.some(t => t.suit === suit && t.rank === r+2 && !isLaizi(t));
+    if (has1 && has2) results.push([r, r+1, r+2]);
+  }
+  return results;
+}
+
+function canPong(hand, discardTile) {
+  const count = hand.filter(t => t.suit === discardTile.suit && t.rank === discardTile.rank && !isLaizi(t)).length;
+  return count >= 2;
+}
+
+function canMingKong(hand, discardTile) {
+  const count = hand.filter(t => t.suit === discardTile.suit && t.rank === discardTile.rank && !isLaizi(t)).length;
+  return count >= 3;
+}
+
+function canAnKong(hand) {
+  const counts = {};
+  for (const t of hand) {
+    if (isLaizi(t) || isHongZhong(t)) continue;
+    const k = tileKey(t);
+    counts[k] = (counts[k] || 0) + 1;
+  }
+  return Object.entries(counts).filter(([k,v]) => v >= 4).map(([k]) => k);
+}
+
+function canHongZhongKong(hand) {
+  return hand.filter(t => isHongZhong(t)).length;
+}
+
+function canLaiziKong(hand) {
+  return hand.filter(t => isLaizi(t)).length;
+}
+
+// ── Execute actions ──
+function doChi(player, discardTile, seq) {
+  // Remove the 2 tiles from hand that match the other 2 ranks in seq
+  const toRemove = seq.filter(r => r !== discardTile.rank);
+  for (const r of toRemove) {
+    const idx = player.hand.findIndex(t => t.suit === discardTile.suit && t.rank === r && !isLaizi(t));
+    if (idx >= 0) player.hand.splice(idx, 1);
+  }
+  // Add the 3 tiles as a meld
+  const meldTiles = seq.map(r => ({ suit:discardTile.suit, rank:r, id:-1 }));
+  player.melds.push({ type:'chi', tiles:meldTiles });
+  player.openMouth = true;
+}
+
+function doPong(player, discardTile) {
+  // Remove 2 matching tiles from hand
+  for (let i = 0; i < 2; i++) {
+    const idx = player.hand.findIndex(t => t.suit === discardTile.suit && t.rank === discardTile.rank && !isLaizi(t));
+    if (idx >= 0) player.hand.splice(idx, 1);
+  }
+  player.melds.push({ type:'pong', tiles:[
+    {...discardTile},{...discardTile},{...discardTile}
+  ]});
+  player.openMouth = true;
+}
+
+function doMingKong(player, discardTile) {
+  for (let i = 0; i < 3; i++) {
+    const idx = player.hand.findIndex(t => t.suit === discardTile.suit && t.rank === discardTile.rank && !isLaizi(t));
+    if (idx >= 0) player.hand.splice(idx, 1);
+  }
+  player.melds.push({ type:'mingkong', tiles:[
+    {...discardTile},{...discardTile},{...discardTile},{...discardTile}
+  ]});
+  player.openMouth = true;
+}
+
+function doAnKong(player, key) {
+  const [suit, rankStr] = key.split('_');
+  const rank = parseInt(rankStr);
+  for (let i = 0; i < 4; i++) {
+    const idx = player.hand.findIndex(t => t.suit === suit && t.rank === rank && !isLaizi(t));
+    if (idx >= 0) player.hand.splice(idx, 1);
+  }
+  const tile = {suit, rank, id:-1};
+  player.melds.push({ type:'ankong', tiles:[tile,tile,tile,tile] });
+  // 暗杠不算开口
+}
+
+function doHongZhongKong(player) {
+  for (let i = 0; i < 1; i++) {
+    const idx = player.hand.findIndex(t => isHongZhong(t));
+    if (idx >= 0) player.hand.splice(idx, 1);
+  }
+  player.melds.push({ type:'hongzhongkong', tiles:[{suit:'feng',rank:5,id:-1}] });
+  // 红中杠不算开口
+}
+
+function doLaiziKong(player) {
+  const idx = player.hand.findIndex(t => isLaizi(t));
+  if (idx >= 0) player.hand.splice(idx, 1);
+  player.melds.push({ type:'laizikong', tiles:[{...game.laiziTile}] });
+  // 赖子杠不算开口
+}
+
+// ═══════════════════════════════════════════
+//  WIN RATE CONTROL
+// ═══════════════════════════════════════════
+
+// AI discard: with probability, discard tiles that mom might want
+function aiDiscard(player, biasAwayFromMom) {
+  if (player.hand.length === 0) return null;
+
+  // Remove 红中 first (must杠 them)
+  const hzIdx = player.hand.findIndex(t => isHongZhong(t));
+  if (hzIdx >= 0) return player.hand[hzIdx]; // Will trigger 红中杠
+
+  // If mom bias is active and this is an AI, sometimes discard what mom needs
+  const mom = game.players[0];
+  if (biasAwayFromMom && Math.random() < 0.25) {
+    // Pick a tile that doesn't help mom complete her hand
+    const safeTiles = player.hand.filter(t => !isLaizi(t) && !isTileGoodForHand(t, mom.hand));
+    if (safeTiles.length > 0) {
+      return safeTiles[Math.floor(Math.random() * safeTiles.length)];
+    }
+  }
+
+  // Otherwise, discard the worst tile
+  return findWorstTile(player.hand, player);
+}
+
+function isTileGoodForHand(tile, hand) {
+  // Check if tile completes a pair, sequence, or triplet in the target hand
+  const counts = {};
+  for (const t of hand) {
+    if (isLaizi(t)) continue;
+    const k = tileKey(t);
+    counts[k] = (counts[k]||0)+1;
+  }
+  const k = tileKey(tile);
+  // Helps form a pair
+  if (counts[k] && counts[k] >= 1) return true;
+  // Helps form a sequence
+  if (tile.suit !== 'feng') {
+    const k1 = tileKey({suit:tile.suit, rank:tile.rank-1});
+    const k2 = tileKey({suit:tile.suit, rank:tile.rank+1});
+    const k3 = tileKey({suit:tile.suit, rank:tile.rank-2});
+    const k4 = tileKey({suit:tile.suit, rank:tile.rank+2});
+    if ((counts[k1]||0) + (counts[k2]||0) >= 2) return true;
+    if ((counts[k1]||0) >= 1 && (counts[k2]||0) >= 1) return true;
+    if ((counts[k3]||0) >= 1 && (counts[k1]||0) >= 1) return true;
+    if ((counts[k2]||0) >= 1 && (counts[k4]||0) >= 1) return true;
+  }
+  return false;
+}
+
+function findWorstTile(hand, player) {
+  // Simple heuristic: prefer isolated tiles, non-pairs, non-sequence-adjacent
+  let best = hand[0];
+  let bestScore = Infinity;
+
+  for (const t of hand) {
+    if (isLaizi(t) || isHongZhong(t)) continue;
+    const score = tileIsolationScore(t, hand);
+    if (score < bestScore) {
+      bestScore = score;
+      best = t;
+    }
+  }
+  return best;
+}
+
+function tileIsolationScore(tile, hand) {
+  let score = 0;
+  const counts = {};
+  for (const t of hand) {
+    if (isLaizi(t)) continue;
+    const k = tileKey(t);
+    counts[k] = (counts[k]||0)+1;
+  }
+  const k = tileKey(tile);
+  const myCount = counts[k] || 0;
+  score += myCount * 10; // pairs/triplets are good
+
+  if (tile.suit !== 'feng') {
+    const k1 = tileKey({suit:tile.suit, rank:tile.rank-1});
+    const k2 = tileKey({suit:tile.suit, rank:tile.rank+1});
+    score += (counts[k1]||0) * 6;
+    score += (counts[k2]||0) * 6;
+    const k3 = tileKey({suit:tile.suit, rank:tile.rank-2});
+    const k4 = tileKey({suit:tile.suit, rank:tile.rank+2});
+    score += (counts[k3]||0) * 2;
+    score += (counts[k4]||0) * 2;
+  }
+
+  // 2,5,8 tiles are more valuable (for 小胡将牌)
+  if (tile.suit !== 'feng' && (tile.rank === 2 || tile.rank === 5 || tile.rank === 8)) {
+    score += 3;
+  }
+
+  return score;
+}
+
+// ═══════════════════════════════════════════
+//  GAME FLOW
+// ═══════════════════════════════════════════
+
+function startNewGame() {
+  const prevGame = game;
+  game = initGame();
+  game.roundCount = prevGame ? prevGame.roundCount + 1 : 1;
+  game.momWinCount = prevGame ? prevGame.momWinCount : 0;
+  game.skipDraw = true; // Dealer already has 14 tiles, should discard first
+  document.getElementById('modal-overlay').classList.remove('show');
+  document.getElementById('round-num').textContent = game.roundCount;
+  document.getElementById('mom-wins').textContent = game.momWinCount || 0;
+  renderAll();
+  setMessage('请选择一张牌打出去');
+  updateActionButtons();
+}
+
+function drawTile(player) {
+  if (game.tiles.length === 0) {
+    endGame('draw');
+    return null;
+  }
+  const tile = game.tiles.pop();
+  player.hand.push(tile);
+  sortHand(player.hand);
+  return tile;
+}
+
+function discardTile(player, tile) {
+  const idx = player.hand.findIndex(t => t.id === tile.id);
+  if (idx < 0) return false;
+  player.hand.splice(idx, 1);
+  player.discards.push(tile);
+  game.lastDiscard = { tile, fromPlayer: game.players.indexOf(player) };
+  return true;
+}
+
+// When a player discards, check if others can chi/pong/kong/win
+function checkReactions(discardTile, discardPlayerIdx) {
+  const actions = [];
+  for (let i = 0; i < 4; i++) {
+    if (i === discardPlayerIdx) continue;
+    const p = game.players[i];
+    const handWithDiscard = [...p.hand, discardTile];
+
+    // Check win (hu)
+    const hzCount = countHongZhong(p.hand);
+    if (hzCount === 0) {
+      const daHu = isDaHu(handWithDiscard.filter(t => !isHongZhong(t)));
+      if (canWin(handWithDiscard.filter(t => !isHongZhong(t)), daHu)) {
+        if (p.openMouth || daHu) {
+          actions.push({ playerIdx:i, type:'win', priority:4 });
+        }
+      }
+    }
+
+    // Check kong
+    if (canMingKong(p.hand, discardTile)) {
+      actions.push({ playerIdx:i, type:'kong', priority:3 });
+    }
+
+    // Check pong
+    if (canPong(p.hand, discardTile)) {
+      actions.push({ playerIdx:i, type:'pong', priority:2 });
+    }
+
+    // Check chi (only next player in turn order)
+    if (i === (discardPlayerIdx + 1) % 4) {
+      const chiOpts = canChi(p.hand, discardTile);
+      if (chiOpts.length > 0) {
+        actions.push({ playerIdx:i, type:'chi', priority:1, chiOpts });
+      }
+    }
+  }
+
+  // Sort by priority (highest first)
+  actions.sort((a,b) => b.priority - a.priority);
+  return actions;
+}
+
+function processTurn() {
+  const player = game.players[game.currentPlayer];
+
+  if (player.isHuman) {
+    const wasSkipDraw = game.skipDraw;
+    game.skipDraw = false;
+
+    if (!wasSkipDraw) {
+      const drawn = drawTile(player);
+      if (!drawn) return;
+      sortHand(player.hand);
+    }
+
+    renderAll();
+
+    // Check if human can win (自摸)
+    const hzCount = countHongZhong(player.hand);
+    const handNoHz = player.hand.filter(t => !isHongZhong(t));
+    const daHu = isDaHu(handNoHz);
+
+    if (hzCount === 0 && canWin(handNoHz, daHu) && (player.openMouth || daHu)) {
+      setMessage('🎉 自摸！点击"胡"按钮！');
+    } else {
+      setMessage('选择一张牌打出去');
+    }
+    updateActionButtons();
+  } else {
+    // AI turn
+    setTimeout(() => aiTurn(player), 1200);
+  }
+}
+
+function aiTurn(player) {
+  const playerIdx = game.players.indexOf(player);
+
+  // Check 红中 first - must杠
+  if (canHongZhongKong(player.hand) > 0) {
+    doHongZhongKong(player);
+    const drawn = drawTile(player);
+    if (!drawn) return;
+    sortHand(player.hand);
+    game.skipDraw = true; // Don't draw again on recurse
+    renderAll();
+    setTimeout(() => aiTurn(player), 800);
+    return;
+  }
+
+  // Draw (unless skipDraw)
+  if (!game.skipDraw) {
+    const drawn = drawTile(player);
+    if (!drawn) return;
+    sortHand(player.hand);
+  }
+  game.skipDraw = false;
+
+  // Check self-draw win (自摸)
+  const hzCount = countHongZhong(player.hand);
+  const daHu = isDaHu(player.hand.filter(t => !isHongZhong(t)));
+
+  if (hzCount === 0 && (player.openMouth || daHu) && canWin(player.hand.filter(t => !isHongZhong(t)), daHu)) {
+    // AI wins (but sometimes "misses" to let mom win)
+    const isMom = playerIdx === 0;
+    if (isMom || Math.random() < 0.55) {
+      doSelfDrawWin(player, playerIdx);
+      return;
+    }
+  }
+
+  // Discard
+  const bias = playerIdx !== 0;
+  const toDiscard = aiDiscard(player, bias);
+  if (!toDiscard) return;
+
+  // If AI tries to discard 红中, treat as红中杠
+  if (isHongZhong(toDiscard)) {
+    doHongZhongKong(player);
+    const drawn = drawTile(player);
+    if (!drawn) return;
+    sortHand(player.hand);
+    game.skipDraw = true;
+    renderAll();
+    setTimeout(() => aiTurn(player), 800);
+    return;
+  }
+
+  discardTile(player, toDiscard);
+  game.lastDiscard = { tile:toDiscard, fromPlayer:playerIdx };
+
+  renderAll();
+
+  // Check if human can react to AI discard
+  if (playerIdx !== 0) {
+    const reactions = checkReactions(toDiscard, playerIdx);
+    const humanReactions = reactions.filter(r => r.playerIdx === 0);
+    if (humanReactions.length > 0) {
+      setMessage('你可以吃/碰/杠/胡！');
+      showReactionButtons(humanReactions, toDiscard);
+      return;
+    }
+  }
+
+  // Next turn
+  game.currentPlayer = (playerIdx + 1) % 4;
+  setTimeout(() => processTurn(), 1000);
+}
+
+function doSelfDrawWin(player, playerIdx) {
+  player.score++;
+  const isMom = playerIdx === 0;
+  if (isMom) game.momWinCount = (game.momWinCount || 0) + 1;
+
+  setMessage(`🎉 ${player.name} 自摸胡了！`);
+  renderAll();
+  setTimeout(() => {
+    showResult(playerIdx);
+  }, 1000);
+}
+
+function humanDiscard(tile) {
+  const player = game.players[0];
+
+  // 红中杠
+  if (isHongZhong(tile)) {
+    doHongZhongKong(player);
+    const drawn = drawTile(player);
+    sortHand(player.hand);
+    renderAll();
+    if (drawn) {
+      setMessage('红中杠！补了一张牌，请继续出牌');
+    }
+    updateActionButtons();
+    return;
+  }
+
+  // Normal discard
+  discardTile(player, tile);
+  game.lastDiscard = { tile, fromPlayer: 0 };
+  renderAll();
+
+  // Check if AIs want to react
+  const reactions = checkReactions(tile, 0);
+
+  if (reactions.length > 0) {
+    processAIReactions(reactions, tile);
+  } else {
+    game.currentPlayer = 1;
+    setMessage('李阿姨的回合...');
+    renderAll();
+    setTimeout(() => processTurn(), 1200);
+  }
+}
+
+function processAIReactions(reactions, discardTile) {
+  // AI decides whether to react - with mom bias: AIs sometimes pass even if they can win
+  let acted = false;
+
+  for (const r of reactions) {
+    const p = game.players[r.playerIdx];
+    if (p.isHuman) continue; // Human reactions handled separately
+
+    // Mom bias: AIs pass on winning sometimes
+    if (r.type === 'win' && Math.random() < 0.35) {
+      continue; // AI passes on winning
+    }
+
+    // Mom bias: AIs pass on kong sometimes
+    if (r.type === 'kong' && Math.random() < 0.3) {
+      continue;
+    }
+
+    // Execute the action
+    if (r.type === 'win') {
+      p.score++;
+      const pIdx = r.playerIdx;
+      if (pIdx === 0) game.momWinCount = (game.momWinCount || 0) + 1;
+
+      p.hand.push(discardTile);
+      setMessage(`🎉 ${p.name} 胡了！（点炮）`);
+      renderAll();
+      setTimeout(() => showResult(pIdx), 1000);
+      return;
+    }
+
+    if (r.type === 'kong') {
+      doMingKong(p, discardTile);
+      game.currentPlayer = r.playerIdx;
+      game.skipDraw = true;
+      acted = true;
+      setMessage(`${p.name} 杠了！`);
+      break;
+    }
+
+    if (r.type === 'pong') {
+      doPong(p, discardTile);
+      game.currentPlayer = r.playerIdx;
+      game.skipDraw = true;
+      acted = true;
+      setMessage(`${p.name} 碰了！`);
+      break;
+    }
+
+    if (r.type === 'chi') {
+      doChi(p, discardTile, r.chiOpts[0]);
+      game.currentPlayer = r.playerIdx;
+      game.skipDraw = true;
+      acted = true;
+      setMessage(`${p.name} 吃了！`);
+      break;
+    }
+  }
+
+  renderAll();
+
+  if (acted) {
+    // Current player needs to discard (not draw)
+    setTimeout(() => processTurn(), 1000);
+  } else {
+    // No reaction, next player draws
+    game.currentPlayer = (game.lastDiscard.fromPlayer + 1) % 4;
+    setTimeout(() => processTurn(), 1200);
+  }
+}
+
+function discardTileFromDiscard(tile) {
+  // Just mark it as consumed - it's in game.lastDiscard
+}
+
+function showReactionButtons(reactions, discardTile) {
+  const container = document.getElementById('actions');
+  container.innerHTML = '';
+
+  const hasWin = reactions.some(r => r.type === 'win');
+  const hasKong = reactions.some(r => r.type === 'kong');
+  const hasPong = reactions.some(r => r.type === 'pong');
+  const hasChi = reactions.some(r => r.type === 'chi');
+
+  if (hasWin) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-win';
+    btn.textContent = '🏆 胡！';
+    btn.onclick = () => {
+      const mom = game.players[0];
+      mom.hand.push(game.lastDiscard.tile);
+      mom.score++;
+      game.momWinCount = (game.momWinCount || 0) + 1;
+      sortHand(mom.hand);
+      setMessage('🎉 恭喜妈妈胡了！');
+      renderAll();
+      container.innerHTML = '';
+      setTimeout(() => showResult(0), 1000);
+    };
+    container.appendChild(btn);
+  }
+
+  if (hasKong) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-kong';
+    btn.textContent = '杠';
+    btn.onclick = () => {
+      const mom = game.players[0];
+      doMingKong(mom, game.lastDiscard.tile);
+      game.currentPlayer = 0;
+      game.skipDraw = true;
+      container.innerHTML = '';
+      renderAll();
+      processTurn();
+    };
+    container.appendChild(btn);
+  }
+
+  if (hasPong) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-pong';
+    btn.textContent = '碰';
+    btn.onclick = () => {
+      const mom = game.players[0];
+      doPong(mom, game.lastDiscard.tile);
+      game.currentPlayer = 0;
+      game.skipDraw = true;
+      container.innerHTML = '';
+      renderAll();
+      processTurn();
+    };
+    container.appendChild(btn);
+  }
+
+  if (hasChi) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-chi';
+    btn.textContent = '吃';
+    btn.onclick = () => {
+      const mom = game.players[0];
+      const chiOpts = reactions.find(r => r.type === 'chi');
+      if (chiOpts && chiOpts.chiOpts) {
+        doChi(mom, game.lastDiscard.tile, chiOpts.chiOpts[0]);
+      }
+      game.currentPlayer = 0;
+      game.skipDraw = true;
+      container.innerHTML = '';
+      renderAll();
+      processTurn();
+    };
+    container.appendChild(btn);
+  }
+
+  const passBtn = document.createElement('button');
+  passBtn.className = 'btn-pass';
+  passBtn.textContent = '过';
+  passBtn.onclick = () => {
+    container.innerHTML = '';
+    game.currentPlayer = (game.lastDiscard.fromPlayer + 1) % 4;
+    if (game.currentPlayer === 0) {
+      setMessage('轮到你了，摸牌吧！');
+      processTurn();
+    } else {
+      setMessage(`${game.players[game.currentPlayer].name}的回合...`);
+      setTimeout(() => processTurn(), 1200);
+    }
+  };
+  container.appendChild(passBtn);
+}
+
+function updateActionButtons() {
+  const container = document.getElementById('actions');
+  const player = game.players[0];
+
+  if (game.currentPlayer !== 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  // Check if can win (自摸)
+  const hzCount = countHongZhong(player.hand);
+  const lzCount = countLaizi(player.hand);
+  const daHu = isDaHu(player.hand.filter(t => !isHongZhong(t)));
+
+  if (hzCount === 0 && player.openMouth && canWin(player.hand.filter(t => !isHongZhong(t)), daHu)) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-win';
+    btn.textContent = '🏆 自摸胡！';
+    btn.onclick = () => {
+      player.score++;
+      game.momWinCount = (game.momWinCount || 0) + 1;
+      setMessage('🎉 恭喜妈妈胡了！');
+      container.innerHTML = '';
+      renderAll();
+      setTimeout(() => showResult(0), 1000);
+    };
+    container.appendChild(btn);
+  }
+
+  // Kong button (暗杠, 红中杠, 赖子杠)
+  const ankongKeys = canAnKong(player.hand);
+  const hzKong = canHongZhongKong(player.hand);
+  const lzKong = canLaiziKong(player.hand);
+
+  if (ankongKeys.length > 0 || hzKong > 0 || lzKong > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-kong';
+    btn.textContent = `杠 (${ankongKeys.length + (hzKong>0?1:0) + (lzKong>0?1:0)})`;
+    btn.onclick = () => {
+      // Priority: 红中杠 > 赖子杠 > 暗杠
+      if (hzKong > 0) {
+        doHongZhongKong(player);
+        const drawn = drawTile(player);
+        sortHand(player.hand);
+      } else if (lzKong > 0) {
+        doLaiziKong(player);
+        const drawn = drawTile(player);
+        sortHand(player.hand);
+      } else if (ankongKeys.length > 0) {
+        doAnKong(player, ankongKeys[0]);
+        const drawn = drawTile(player);
+        sortHand(player.hand);
+      }
+      renderAll();
+      updateActionButtons();
+    };
+    container.appendChild(btn);
+  }
+}
+
+function showResult(winnerIdx) {
+  const winner = game.players[winnerIdx];
+  const isMom = winnerIdx === 0;
+  document.getElementById('modal-title').textContent = isMom ? '🎉 恭喜妈妈赢了！' : `😅 ${winner.name}赢了`;
+  document.getElementById('modal-result').textContent = isMom
+    ? '妈妈太厉害了！继续加油！'
+    : '没关系，下一局妈妈一定赢！';
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('mom-wins').textContent = game.momWinCount || 0;
+}
+
+function endGame(reason) {
+  setMessage(reason === 'draw' ? '流局了，没人胡牌' : '');
+  setTimeout(() => {
+    document.getElementById('modal-title').textContent = '平局';
+    document.getElementById('modal-result').textContent = '这局流局了，再来一局吧！';
+    document.getElementById('modal-overlay').classList.add('show');
+  }, 800);
+}
+
+// ═══════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════
+
+function renderAll() {
+  if (!game) return;
+  renderFlipInfo();
+  renderOpponents();
+  renderDiscards();
+  renderMyMelds();
+  renderHand();
+  renderStats();
+}
+
+function renderFlipInfo() {
+  document.getElementById('flip-tile').textContent = tileName(game.flipTile);
+  document.getElementById('laizi-tile').textContent = tileName(game.laiziTile);
+  document.getElementById('laizi-display').textContent = tileName(game.laiziTile);
+}
+
+function renderOpponents() {
+  const positions = [
+    { id:'opp-left', idx:1 },
+    { id:'opp-top', idx:2 },
+    { id:'opp-right', idx:3 },
+  ];
+
+  for (const pos of positions) {
+    const el = document.getElementById(pos.id);
+    const p = game.players[pos.idx];
+    el.querySelector('.name').textContent = '🤖 ' + p.name;
+    el.querySelector('.tile-count').textContent = p.hand.length + '张';
+    if (game.currentPlayer === pos.idx) {
+      el.classList.add('current-player');
+    } else {
+      el.classList.remove('current-player');
+    }
+    const meldsEl = el.querySelector('.melds');
+    meldsEl.innerHTML = p.melds.map(m => {
+      const typeLabel = {chi:'吃',pong:'碰',mingkong:'明杠',ankong:'暗杠',hongzhongkong:'红中杠',laizikong:'赖子杠'}[m.type] || '';
+      return `<span class="meld-tile">${typeLabel}${m.tiles.map(t=>tileShort(t)).join('')}</span>`;
+    }).join('');
+  }
+}
+
+function renderDiscards() {
+  const zone = document.getElementById('discard-zone');
+  // Show ALL discards from all players, grouped by player
+  let html = '';
+  const colors = ['#ffcdd2','#c8e6c9','#bbdefb','#ffe0b2']; // mom, li, wang, zhang
+  const labels = ['妈','李','王','张'];
+
+  for (let i = 0; i < 4; i++) {
+    const p = game.players[i];
+    if (p.discards.length === 0) continue;
+    html += `<div style="display:flex;align-items:center;gap:2px;margin:2px 0;flex-wrap:wrap;justify-content:center">`;
+    html += `<span style="font-size:10px;color:#fff;min-width:14px;text-align:center;background:${colors[i]};border-radius:8px;padding:1px 5px;margin-right:2px">${labels[i]}</span>`;
+    for (const t of p.discards) {
+      const isLast = game.lastDiscard && game.lastDiscard.tile === t && game.lastDiscard.fromPlayer === i;
+      const cssClass = tileCSS(t);
+      html += `<div class="discarded ${cssClass} ${isLast?'last':''}">
+        <span class="rank">${t.suit==='feng' ? WIND_NAMES[t.rank-1][0] : t.rank}</span>
+        <span class="suit">${SUIT_NAMES[t.suit]}</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  zone.innerHTML = html;
+  // Auto scroll to bottom so newest discards are visible
+  zone.scrollTop = zone.scrollHeight;
+}
+
+function renderMyMelds() {
+  const el = document.getElementById('my-melds');
+  const player = game.players[0];
+  el.innerHTML = player.melds.map(m => {
+    const tilesHtml = m.tiles.map(t => {
+      const css = tileCSS(t);
+      return `<div class="mt ${css}">
+        <span>${t.suit==='feng'?WIND_NAMES[t.rank-1][0]:t.rank}</span>
+        <span style="font-size:7px">${SUIT_NAMES[t.suit]}</span>
+      </div>`;
+    }).join('');
+    const typeLabel = {chi:'吃',pong:'碰',mingkong:'明杠',ankong:'暗杠',hongzhongkong:'红中杠',laizikong:'赖子杠'}[m.type] || '';
+    return `<div class="meld-group"><span style="color:#aaa;font-size:9px;margin-right:2px">${typeLabel}</span>${tilesHtml}</div>`;
+  }).join('');
+}
+
+function renderHand() {
+  const container = document.getElementById('hand-tiles');
+  const player = game.players[0];
+  if (!player) return;
+
+  container.innerHTML = player.hand.map(t => {
+    const cssClass = tileCSS(t);
+    const isLz = isLaizi(t);
+    const isHz = isHongZhong(t);
+    let cls = `tile ${cssClass}`;
+    if (isLz) cls += ' laizi-tile';
+    if (isHz) cls += ' hongzhong';
+
+    const rankDisplay = t.suit === 'feng' ? WIND_NAMES[t.rank-1] : t.rank;
+    const suitDisplay = t.suit === 'feng' ? '' : SUIT_NAMES[t.suit];
+    const id = t.id;
+
+    return `<div class="${cls}" data-id="${id}" onclick="onTileClick(${id})">
+      <span class="rank">${rankDisplay}</span>
+      ${suitDisplay ? `<span class="suit">${suitDisplay}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function onTileClick(id) {
+  if (game.currentPlayer !== 0) return;
+
+  // If there are pending action buttons, don't allow tile selection
+  const actionsEl = document.getElementById('actions');
+  if (actionsEl.children.length > 0) return;
+
+  const player = game.players[0];
+  const tile = player.hand.find(t => t.id === id);
+  if (!tile) return;
+
+  // Immediate discard (single tap for mobile)
+  humanDiscard(tile);
+}
+
+function renderStats() {
+  document.getElementById('round-num').textContent = game.roundCount || 1;
+  document.getElementById('mom-wins').textContent = game.momWinCount || 0;
+}
+
+function setMessage(msg) {
+  document.getElementById('message').textContent = msg;
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+
+startNewGame();
+
+</script>
+</body>
+</html>
