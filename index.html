@@ -832,9 +832,7 @@ function doLaiziKong(player) {
 function aiDiscard(player, biasAwayFromMom) {
   if (player.hand.length === 0) return null;
 
-  // Remove 红中/发财 first (must杠 them)
-  const fjIdx = player.hand.findIndex(t => isMustKong(t));
-  if (fjIdx >= 0) return player.hand[fjIdx]; // Will trigger风箭杠
+  // 红中/发财不强制出，AI在aiTurn中概率决定是否杠
 
   // If mom bias is active and this is an AI, sometimes discard what mom needs
   const mom = game.players[0];
@@ -1038,13 +1036,13 @@ function processTurn() {
 function aiTurn(player) {
   const playerIdx = game.players.indexOf(player);
 
-  // Check 红中/发财 first - must杠
-  if (canFengJianKong(player.hand) > 0) {
+  // 红中/发财可杠，AI概率决定是否现在杠（70%杠，30%留着）
+  if (canFengJianKong(player.hand) > 0 && Math.random() < 0.7) {
     doFengJianKong(player);
     const drawn = drawTile(player);
     if (!drawn) return;
     sortHand(player.hand);
-    game.skipDraw = true; // Don't draw again on recurse
+    game.skipDraw = true;
     renderAll();
     setTimeout(() => aiTurn(player), 800);
     return;
@@ -1124,17 +1122,9 @@ function doSelfDrawWin(player, playerIdx) {
 function humanDiscard(tile) {
   const player = game.players[0];
 
-  // 红中/发财杠
+  // 红中/发财只能杠不能出，点"杠"按钮来杠
   if (isMustKong(tile)) {
-    const isHz = isHongZhong(tile);
-    doFengJianKong(player);
-    const drawn = drawTile(player);
-    sortHand(player.hand);
-    renderAll();
-    if (drawn) {
-      setMessage(isHz ? '红中杠！补了一张牌，请继续出牌' : '发财杠！补了一张牌，请继续出牌');
-    }
-    updateActionButtons();
+    setMessage('红中/发财只能杠不能出！点下方"杠"按钮');
     return;
   }
 
