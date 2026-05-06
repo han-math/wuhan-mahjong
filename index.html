@@ -141,6 +141,11 @@ body {
   content:'杠'; position:absolute; top:-2px; right:1px;
   font-size:8px; color:#c62828; font-weight:bold;
 }
+.tile.facai { border-color:#2e7d32; background:#e8f5e9; border-width:3px; }
+.tile.facai::after {
+  content:'杠'; position:absolute; top:-2px; right:1px;
+  font-size:8px; color:#2e7d32; font-weight:bold;
+}
 .tile.wan { color:#b71c1c; }
 .tile.tiao { color:#1b5e20; }
 .tile.tong { color:#0d47a1; }
@@ -281,7 +286,7 @@ function tileShort(t) {
 function tileCSS(t) {
   if (t.suit === 'feng') {
     if (t.rank === 5) return 'jian hongzhong'; // 红中
-    if (t.rank === 6) return 'jian'; // 发财
+    if (t.rank === 6) return 'jian facai'; // 发财
     if (t.rank === 7) return 'jian'; // 白板
     return 'feng';
   }
@@ -430,8 +435,15 @@ function isLaizi(t) {
   return t.suit === lz.suit && t.rank === lz.rank;
 }
 
+// 红中和发财都是"风箭"，必须杠，不能留手里
 function isHongZhong(t) {
   return t.suit === 'feng' && t.rank === 5;
+}
+function isFaCai(t) {
+  return t.suit === 'feng' && t.rank === 6;
+}
+function isMustKong(t) {
+  return t.suit === 'feng' && (t.rank === 5 || t.rank === 6);
 }
 
 // ── Sorting ──
@@ -450,8 +462,8 @@ function sortHand(hand) {
 // Check if hand can win. Hand should NOT contain 红中 (those must be杠'd first).
 // Hand CAN contain laizi (they are counted internally).
 function canWin(hand, isDaHu) {
-  // Filter out红中 (shouldn't be in hand, but be safe)
-  const cleanHand = hand.filter(t => !isHongZhong(t));
+  // Filter out红中/发财 (must杠 first)
+  const cleanHand = hand.filter(t => !isMustKong(t));
 
   // Separate laizi from regular tiles
   const laiziTiles = cleanHand.filter(t => isLaizi(t));
@@ -611,7 +623,7 @@ function tryRemoveMelds(counts, keys, idx, laiziLeft, isWind) {
 // Check if hand is a "big win" (大胡): 清一色 or 碰碰胡
 function isDaHu(hand) {
   // Separate laizi from regular tiles
-  const regularTiles = hand.filter(t => !isLaizi(t) && !isHongZhong(t));
+  const regularTiles = hand.filter(t => !isLaizi(t) && !isMustKong(t));
 
   const bySuit = { wan:[], tiao:[], tong:[], feng:[] };
   for (const t of regularTiles) {
@@ -642,9 +654,9 @@ function countLaizi(hand) {
   return hand.filter(t => isLaizi(t)).length;
 }
 
-// Count 红中 in hand
-function countHongZhong(hand) {
-  return hand.filter(t => isHongZhong(t)).length;
+// Count 红中/发财 in hand (must杠)
+function countFengJian(hand) {
+  return hand.filter(t => isMustKong(t)).length;
 }
 
 // ═══════════════════════════════════════════
@@ -691,15 +703,15 @@ function canMingKong(hand, discardTile) {
 function canAnKong(hand) {
   const counts = {};
   for (const t of hand) {
-    if (isLaizi(t) || isHongZhong(t)) continue;
+    if (isLaizi(t) || isMustKong(t)) continue;
     const k = tileKey(t);
     counts[k] = (counts[k] || 0) + 1;
   }
   return Object.entries(counts).filter(([k,v]) => v >= 4).map(([k]) => k);
 }
 
-function canHongZhongKong(hand) {
-  return hand.filter(t => isHongZhong(t)).length;
+function canFengJianKong(hand) {
+  return hand.filter(t => isMustKong(t)).length;
 }
 
 function canLaiziKong(hand) {
@@ -755,13 +767,15 @@ function doAnKong(player, key) {
   // 暗杠不算开口
 }
 
-function doHongZhongKong(player) {
-  for (let i = 0; i < 1; i++) {
-    const idx = player.hand.findIndex(t => isHongZhong(t));
-    if (idx >= 0) player.hand.splice(idx, 1);
-  }
-  player.melds.push({ type:'hongzhongkong', tiles:[{suit:'feng',rank:5,id:-1}] });
-  // 红中杠不算开口
+function doFengJianKong(player) {
+  const idx = player.hand.findIndex(t => isMustKong(t));
+  if (idx < 0) return;
+  const tile = player.hand[idx];
+  player.hand.splice(idx, 1);
+  const type = tile.rank === 5 ? 'hongzhongkong' : 'facaikong';
+  const name = tile.rank === 5 ? '红中杠' : '发财杠';
+  player.melds.push({ type, tiles:[{suit:'feng',rank:tile.rank,id:-1}], name });
+  // 红中杠/发财杠不算开口
 }
 
 function doLaiziKong(player) {
@@ -779,9 +793,9 @@ function doLaiziKong(player) {
 function aiDiscard(player, biasAwayFromMom) {
   if (player.hand.length === 0) return null;
 
-  // Remove 红中 first (must杠 them)
-  const hzIdx = player.hand.findIndex(t => isHongZhong(t));
-  if (hzIdx >= 0) return player.hand[hzIdx]; // Will trigger 红中杠
+  // Remove 红中/发财 first (must杠 them)
+  const fjIdx = player.hand.findIndex(t => isMustKong(t));
+  if (fjIdx >= 0) return player.hand[fjIdx]; // Will trigger风箭杠
 
   // If mom bias is active and this is an AI, sometimes discard what mom needs
   const mom = game.players[0];
@@ -828,7 +842,7 @@ function findWorstTile(hand, player) {
   let bestScore = Infinity;
 
   for (const t of hand) {
-    if (isLaizi(t) || isHongZhong(t)) continue;
+    if (isLaizi(t) || isMustKong(t)) continue;
     const score = tileIsolationScore(t, hand);
     if (score < bestScore) {
       bestScore = score;
@@ -916,10 +930,10 @@ function checkReactions(discardTile, discardPlayerIdx) {
     const handWithDiscard = [...p.hand, discardTile];
 
     // Check win (hu)
-    const hzCount = countHongZhong(p.hand);
-    if (hzCount === 0) {
-      const daHu = isDaHu(handWithDiscard.filter(t => !isHongZhong(t)));
-      if (canWin(handWithDiscard.filter(t => !isHongZhong(t)), daHu)) {
+    const fjCount = countFengJian(p.hand);
+    if (fjCount === 0) {
+      const daHu = isDaHu(handWithDiscard.filter(t => !isMustKong(t)));
+      if (canWin(handWithDiscard.filter(t => !isMustKong(t)), daHu)) {
         if (p.openMouth || daHu) {
           actions.push({ playerIdx:i, type:'win', priority:4 });
         }
@@ -966,11 +980,11 @@ function processTurn() {
     renderAll();
 
     // Check if human can win (自摸)
-    const hzCount = countHongZhong(player.hand);
-    const handNoHz = player.hand.filter(t => !isHongZhong(t));
-    const daHu = isDaHu(handNoHz);
+    const fjCount = countFengJian(player.hand);
+    const handNoFj = player.hand.filter(t => !isMustKong(t));
+    const daHu = isDaHu(handNoFj);
 
-    if (hzCount === 0 && canWin(handNoHz, daHu) && (player.openMouth || daHu)) {
+    if (fjCount === 0 && canWin(handNoFj, daHu) && (player.openMouth || daHu)) {
       setMessage('🎉 自摸！点击"胡"按钮！');
     } else {
       setMessage('选择一张牌打出去');
@@ -985,9 +999,9 @@ function processTurn() {
 function aiTurn(player) {
   const playerIdx = game.players.indexOf(player);
 
-  // Check 红中 first - must杠
-  if (canHongZhongKong(player.hand) > 0) {
-    doHongZhongKong(player);
+  // Check 红中/发财 first - must杠
+  if (canFengJianKong(player.hand) > 0) {
+    doFengJianKong(player);
     const drawn = drawTile(player);
     if (!drawn) return;
     sortHand(player.hand);
@@ -1006,10 +1020,10 @@ function aiTurn(player) {
   game.skipDraw = false;
 
   // Check self-draw win (自摸)
-  const hzCount = countHongZhong(player.hand);
-  const daHu = isDaHu(player.hand.filter(t => !isHongZhong(t)));
+  const fjCount = countFengJian(player.hand);
+  const daHu = isDaHu(player.hand.filter(t => !isMustKong(t)));
 
-  if (hzCount === 0 && (player.openMouth || daHu) && canWin(player.hand.filter(t => !isHongZhong(t)), daHu)) {
+  if (fjCount === 0 && (player.openMouth || daHu) && canWin(player.hand.filter(t => !isMustKong(t)), daHu)) {
     // AI wins (but sometimes "misses" to let mom win)
     const isMom = playerIdx === 0;
     if (isMom || Math.random() < 0.55) {
@@ -1023,9 +1037,9 @@ function aiTurn(player) {
   const toDiscard = aiDiscard(player, bias);
   if (!toDiscard) return;
 
-  // If AI tries to discard 红中, treat as红中杠
-  if (isHongZhong(toDiscard)) {
-    doHongZhongKong(player);
+  // If AI tries to discard 红中/发财, treat as风箭杠
+  if (isMustKong(toDiscard)) {
+    doFengJianKong(player);
     const drawn = drawTile(player);
     if (!drawn) return;
     sortHand(player.hand);
@@ -1071,14 +1085,15 @@ function doSelfDrawWin(player, playerIdx) {
 function humanDiscard(tile) {
   const player = game.players[0];
 
-  // 红中杠
-  if (isHongZhong(tile)) {
-    doHongZhongKong(player);
+  // 红中/发财杠
+  if (isMustKong(tile)) {
+    const isHz = isHongZhong(tile);
+    doFengJianKong(player);
     const drawn = drawTile(player);
     sortHand(player.hand);
     renderAll();
     if (drawn) {
-      setMessage('红中杠！补了一张牌，请继续出牌');
+      setMessage(isHz ? '红中杠！补了一张牌，请继续出牌' : '发财杠！补了一张牌，请继续出牌');
     }
     updateActionButtons();
     return;
@@ -1284,11 +1299,11 @@ function updateActionButtons() {
   container.innerHTML = '';
 
   // Check if can win (自摸)
-  const hzCount = countHongZhong(player.hand);
+  const fjCount = countFengJian(player.hand);
   const lzCount = countLaizi(player.hand);
-  const daHu = isDaHu(player.hand.filter(t => !isHongZhong(t)));
+  const daHu = isDaHu(player.hand.filter(t => !isMustKong(t)));
 
-  if (hzCount === 0 && player.openMouth && canWin(player.hand.filter(t => !isHongZhong(t)), daHu)) {
+  if (fjCount === 0 && player.openMouth && canWin(player.hand.filter(t => !isMustKong(t)), daHu)) {
     const btn = document.createElement('button');
     btn.className = 'btn-win';
     btn.textContent = '🏆 自摸胡！';
@@ -1305,17 +1320,17 @@ function updateActionButtons() {
 
   // Kong button (暗杠, 红中杠, 赖子杠)
   const ankongKeys = canAnKong(player.hand);
-  const hzKong = canHongZhongKong(player.hand);
+  const fjKong = canFengJianKong(player.hand);
   const lzKong = canLaiziKong(player.hand);
 
-  if (ankongKeys.length > 0 || hzKong > 0 || lzKong > 0) {
+  if (ankongKeys.length > 0 || fjKong > 0 || lzKong > 0) {
     const btn = document.createElement('button');
     btn.className = 'btn-kong';
-    btn.textContent = `杠 (${ankongKeys.length + (hzKong>0?1:0) + (lzKong>0?1:0)})`;
+    btn.textContent = `杠 (${ankongKeys.length + (fjKong>0?1:0) + (lzKong>0?1:0)})`;
     btn.onclick = () => {
-      // Priority: 红中杠 > 赖子杠 > 暗杠
-      if (hzKong > 0) {
-        doHongZhongKong(player);
+      // Priority: 风箭杠 > 赖子杠 > 暗杠
+      if (fjKong > 0) {
+        doFengJianKong(player);
         const drawn = drawTile(player);
         sortHand(player.hand);
       } else if (lzKong > 0) {
@@ -1393,7 +1408,7 @@ function renderOpponents() {
     }
     const meldsEl = el.querySelector('.melds');
     meldsEl.innerHTML = p.melds.map(m => {
-      const typeLabel = {chi:'吃',pong:'碰',mingkong:'明杠',ankong:'暗杠',hongzhongkong:'红中杠',laizikong:'赖子杠'}[m.type] || '';
+      const typeLabel = {chi:'吃',pong:'碰',mingkong:'明杠',ankong:'暗杠',hongzhongkong:'红中杠',facaikong:'发财杠',laizikong:'赖子杠'}[m.type] || '';
       return `<span class="meld-tile">${typeLabel}${m.tiles.map(t=>tileShort(t)).join('')}</span>`;
     }).join('');
   }
@@ -1414,9 +1429,10 @@ function renderDiscards() {
     for (const t of p.discards) {
       const isLast = game.lastDiscard && game.lastDiscard.tile === t && game.lastDiscard.fromPlayer === i;
       const cssClass = tileCSS(t);
+      const suiSuffix = t.suit==='feng'&&t.rank>=5 ? '' : SUIT_NAMES[t.suit];
       html += `<div class="discarded ${cssClass} ${isLast?'last':''}">
         <span class="rank">${t.suit==='feng' ? WIND_NAMES[t.rank-1][0] : t.rank}</span>
-        <span class="suit">${SUIT_NAMES[t.suit]}</span>
+        <span class="suit">${suiSuffix}</span>
       </div>`;
     }
     html += `</div>`;
@@ -1432,12 +1448,13 @@ function renderMyMelds() {
   el.innerHTML = player.melds.map(m => {
     const tilesHtml = m.tiles.map(t => {
       const css = tileCSS(t);
+      const suiSuf = t.suit==='feng'&&t.rank>=5 ? '' : SUIT_NAMES[t.suit];
       return `<div class="mt ${css}">
         <span>${t.suit==='feng'?WIND_NAMES[t.rank-1][0]:t.rank}</span>
-        <span style="font-size:7px">${SUIT_NAMES[t.suit]}</span>
+        <span style="font-size:7px">${suiSuf}</span>
       </div>`;
     }).join('');
-    const typeLabel = {chi:'吃',pong:'碰',mingkong:'明杠',ankong:'暗杠',hongzhongkong:'红中杠',laizikong:'赖子杠'}[m.type] || '';
+    const typeLabel = {chi:'吃',pong:'碰',mingkong:'明杠',ankong:'暗杠',hongzhongkong:'红中杠',facaikong:'发财杠',laizikong:'赖子杠'}[m.type] || '';
     return `<div class="meld-group"><span style="color:#aaa;font-size:9px;margin-right:2px">${typeLabel}</span>${tilesHtml}</div>`;
   }).join('');
 }
@@ -1451,9 +1468,11 @@ function renderHand() {
     const cssClass = tileCSS(t);
     const isLz = isLaizi(t);
     const isHz = isHongZhong(t);
+    const isFc = isFaCai(t);
     let cls = `tile ${cssClass}`;
     if (isLz) cls += ' laizi-tile';
     if (isHz) cls += ' hongzhong';
+    if (isFc) cls += ' facai';
 
     const rankDisplay = t.suit === 'feng' ? WIND_NAMES[t.rank-1] : t.rank;
     const suitDisplay = t.suit === 'feng' ? '' : SUIT_NAMES[t.suit];
